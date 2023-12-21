@@ -1,0 +1,182 @@
+<template>
+    <view class="page">
+
+        <scroll-view class="m-product-all" scroll-y="true" @scrolltolower="scrollbottom" style="width:100%;height:100%;position: absolute;">
+            <view class="header">
+                <view class="num">{{resource.user_sp_total}}<label style="font-size:34upx">{{__('众宝')}}</label></view>
+                <navigator url="/pages/index/index" open-type="switchTab" class="goshop">{{__('去赚众宝')}}</navigator>
+            </view>
+            <view class="detail">
+                <view class="detail-left">
+                    <text class="highlight">{{__('众宝明细')}}</text>
+                </view>
+            </view>
+            <view v-if="(list.length>0)"  class="m-orderlist" >
+                <view class="detail" v-for="(items, index) in list"  :key="index">
+                    <view class="detail-left">
+                        <text>{{items.sp_type_name}}</text>
+                        <view class="time" style="margin-top:20upx">{{items.sp_log_date}}</view>
+                    </view>
+
+                    <view class="detail-right">{{items.sp_log_desc}}
+                        <label class="money add pprice" v-if="(items.sp_log_sp > 0)">+{{items.sp_log_sp}}</label>
+                        <label class="money add pprice" v-else >-{{items.sp_log_sp}}</label>
+                    </view>
+                </view>
+                <view class="m-loading-box">
+                    <block v-if="(ispage)">
+                        <view class="u-loadmore">
+                            <label class="u-loading"></label>
+                            <text class="u-loadmore-tips">{{__('正在加载')}}</text>
+                        </view>
+                    </block>
+                    <block v-else>
+                        <view class="u-loadmore u-loadmore-line">
+                            <text class="u-loadmore-tips">{{__('没有更多数据啦！')}}</text>
+                        </view>
+                    </block>
+                </view>
+            </view>
+            <view redirect="true" class="m-nullpage" v-else style="top:20%">
+                <view class="m-nullpage-middle">
+                    <view class="m-null-tip">
+                        <text>{{__('亲~您还没有众宝哦')}}</text>
+                    </view>
+                </view>
+            </view>
+        </scroll-view>
+
+
+    </view>
+</template>
+
+
+<script>
+    import {
+        mapState,
+        mapMutations
+    } from 'vuex'
+
+    export default {
+        data: function() {
+            return {
+                resource: {}, list: [], tapindex: 1, page: 1, ispage: !1, flag: !0, windowHeight: 0
+            }
+        },
+        computed: mapState(['Config', 'StateCode', 'notice', 'plantformInfo', 'shopInfo', 'userInfo', 'hasLogin']),
+        onLoad: function(options) {
+            uni.setNavigationBarTitle({
+                title:this.__('')
+            });
+
+
+            let that = this;
+            try
+            {
+                var sysInfo = that.$.getSystemInfoSync();
+                this.setData({
+                    windowHeight: sysInfo.windowHeight
+                })
+            }
+            catch (n)
+            {
+                //console.log("Do something when catch error")
+            }
+
+            that.setData({resource: that.userInfo})
+
+            this.getPointLists()
+        },
+        methods: {
+            ...mapMutations(['login', 'logout', 'getPlantformInfo', 'forceUserInfo', 'getUserInfo']),
+            getPointLists: function () {
+                var that = this, params = {user_id: this.userInfo.user_id, page: this.page};
+
+                that.$.request({
+                    url: this.Config.URL.exchange.sp_history,
+                    data: params,
+                    success: function (data, status, msg, code) {
+                        if (200 == status) {
+                            if (data.page >= data.total) {
+                                that.setData({
+                                    flag: !1,
+                                    ispage: !1,
+                                    list: that.list.concat(data.items)
+                                })
+                            } else {
+                                that.setData({
+                                    flag: !0,
+                                    ispage: !0,
+                                    list: that.list.concat(data.items)
+                                })
+                            }
+                        } else {
+                            that.setData({
+                                flag: !1,
+                                ispage: !1
+                            })
+                        }
+                    }
+                });
+
+            },
+            scrollbottom: function () {
+                if (this.flag)
+                {
+                    var that = this;
+                    that.setData({flag: !1}), clearTimeout(t);
+                    var t = setTimeout(function () {
+                        that.setData({page: that.page + 1}), that.getPointLists()
+                    }, 500)
+                }
+            }
+        }
+    };
+</script>
+
+<style lang="scss">
+    @import "../../styles/_variables";
+
+    .header{
+        width: 100%;
+        height: 340upx;
+        background: $default-skin-bg;
+        display: flex;
+        flex-flow: column;
+        justify-content: center;
+        align-items: center
+    }
+    .num{
+        font-size: 108upx;
+        color: #fff;
+        margin-left: 40upx
+    }
+    .goshop{
+        font-size: 24upx;
+        color: #fff;
+        margin-top: 10upx;
+        border: 1px solid #fff;
+        border-radius: 20upx;
+        padding: 6upx 16upx;
+    }
+    /* .detail{
+      display: flex;
+      justify-content: space-between;
+      padding: 24upx 30upx;
+      align-items: center;
+      border-bottom:1px solid #d9d9d9;
+      background: #fff;
+      font-size: 28upx
+    } */
+    .detail {font-size: 28upx;padding: 24upx 30upx;position: relative;display: -webkit-box;display: -webkit-flex;display: flex;-webkit-box-align: center;-webkit-align-items: center;align-items: center;justify-content: space-between;background: #fff}
+    .detail::before {content: " ";position: absolute;left: 0;top: 0;right: 0;height: 1px;border-bottom: 1px solid #ebebe7;color: #ebebe7;-webkit-transform-origin: 0 0;transform-origin: 0 0;-webkit-transform: scaleY(0.5);transform: scaleY(0.5);}
+    .detail-left{
+        color: #333;
+    }
+    .detail-left view{
+        margin-top: 10upx;
+    }
+    .detail-right{
+        color: #505050
+    }
+</style>

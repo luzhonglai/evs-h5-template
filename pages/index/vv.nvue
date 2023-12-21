@@ -1,0 +1,373 @@
+<template>
+    <div class="page">
+		<swiper
+			class="swiper"
+			:vertical="true"
+			@change="changeCurrent"
+			:style="{ height: height }"
+			:current="index">
+			<swiper-item v-for="(item, idx) in videoList" :key="idx" class="swiper-item">
+				<div class="video-box">
+					<chunlei-video class="video" :src="item.story_video"  :height="height" :width="width" 
+						:play="item.flag" v-if="Math.abs(index-idx)<=1" :gDuration="item.duration"
+						:initialTime="item.initialTime" @pause="pauseVideo"
+					>
+					</chunlei-video>
+					
+					<cover-view class="cover-view-product" v-if="item.item_id && item.product_item_name"  @click.stop="onProduct(item.item_id)">
+						<view class="left-view" style="width: 100upx;height: 100upx;">
+							<cover-image :src="item.product_image" class="product_img"></cover-image>
+						</view>
+						<view class="left-view" style="width: 400upx;height: 100upx;">
+							<text class="left-text uni-ellipsis" style="padding-left: 10upx;">{{item.product_item_name}}</text>
+							<text class="left-text uni-ellipsis" style="padding-left: 10upx;font-size: 24upx;">{{sprintf(__('价格:%s'), item.item_unit_price)}}</text>
+						</view>
+					</cover-view>
+					<cover-view class="cover-view-left">
+						<view class="left-view">
+							<text class="left-text">@{{item.user_nickname}}</text>
+						</view>
+						<view class="left-view">
+							<text class="left-text">{{item.story_title}}</text>
+						</view>
+					</cover-view>
+					<cover-view class="cover-view-right">
+						<cover-image :src="item.story_file[0]" class="avater img" @click.stop="tapAvater"></cover-image>
+						<text class="right-text-avater">+</text>
+						<text class="right-text"></text>
+						<cover-image :src="item.IsFabulous?'https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/axc.png':'https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/bed.png'" class="img" @click.stop="tapLove"></cover-image>
+						<text class="right-text">{{item.story_like_count}}</text>
+						<cover-image src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/ay2.png" class="img" @click.stop="tapMsg"></cover-image>
+						<text class="right-text">{{item.story_comment_count}}</text>
+						<cover-image src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/b6p.png" class="img" @click.stop="tapShare"></cover-image>
+						<text class="right-text">分享</text>
+						
+						<cover-image src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/changpian.png" class="musicIcon img"></cover-image>
+					</cover-view>
+				</div>
+			</swiper-item>
+		</swiper>
+    </div>
+</template>
+<script>
+	
+	import {
+		mapState,
+		mapMutations
+	} from 'vuex'
+	
+	import dateUtil from "../../helpers/util_date";
+	
+	import chunleiVideo from '../../components/chunlei-video/chunlei-video.vue'
+    export default { 
+		components:{
+			chunleiVideo
+		},
+        data() {
+            return {
+				sysheight:0,
+				videoList:[
+					/*
+					{
+						story_video:'http://baobab.kaiyanapp.com/api/v1/playUrl?vid=164016&resourceType=video&editionType=default&source=aliyun&playUrlType=url_oss',
+						story_title:'',
+						flag:false,
+						IsFabulous:false,
+						story_like_count:'7w',
+						story_comment_count:'1045',
+						user_avatar:'http://img.kaiyanapp.com/7af2bb1bc134fb1115d48f05e9d317f0.jpeg?imageMogr2/quality/60/format/jpg',
+						story_file:['../../static/logo.png'],
+						initialTime:0,
+						user_nickname:'',
+						duration:1162
+					}
+					*/
+				],
+				height:'667px',
+				index:0,
+				width:'',
+				oldIndex:0
+			}
+        },
+		computed: mapState(['Config', 'StateCode', 'notice', 'plantformInfo', 'shopInfo', 'userInfo', 'hasLogin']),
+		created(){
+			//#ifdef APP-PLUS
+			plus.screen.lockOrientation("portrait-primary")
+			//#endif
+			this.sysheight = uni.getSystemInfoSync().windowHeight
+			this.height = `${this.sysheight}px` 
+			let width = uni.getSystemInfoSync().windowWidth 
+			this.width = `${width}px` 
+		},
+		async mounted() {
+			await this.pushVideoList()
+			this.videoPlay(this.index)
+		},
+		onHide(){
+			for (let item of this.videoList) {
+				item.flag = false
+			}
+		},
+        methods: {
+			changeCurrent(e){
+				this.index = e.detail.current;
+				for (let item of this.videoList) {
+					item.flag = false
+				}
+				this.videoList[this.index].flag = !this.videoList[this.index].flag
+			},
+			pushVideoList(){
+				let promise = new Promise((resolve,reject)=>{
+					
+						let that = this;
+						var params = {page: this.page};
+					
+						that.$.request({
+							url: this.Config.URL.sns.story_lists,
+							data: params,
+							success:  (data, status, msg, code) => {
+								
+								let videoGroup = []
+								if (data.items.length > 0) {
+									for (var r = 0; r < data.items.length; r++) {
+										data.items[r]['story_time_str'] = dateUtil.dateUtils.format(that.$.datetimeFormatter(data.items[r]['story_time']));
+										
+										data.items[r]['flag'] = false;
+										/*
+										videoGroup.push({
+											story_video:item.data.playUrl,
+											story_title:item.data.title,
+											flag:false,
+											IsFabulous:false,
+											story_like_count:'7w',
+											story_comment_count:'1045',
+											user_nickname:item.data.author.name,
+											user_avatar:item.data.author.icon,
+											initialTime:0,
+											duration:item.data.duration
+										})
+										*/
+									}
+					
+					
+									if (data.page >= data.total) {
+										that.setData({
+											videoList: that.videoList.concat(data.items),
+											flag: !1,
+											ispage: !1
+										});
+									} else {
+										that.setData({
+											videoList: that.videoList.concat(data.items),
+											flag: !0,
+											ispage: !0
+										})
+									}
+									
+									resolve()
+					
+								} else {
+									that.setData({flag: !1, ispage: !1})
+								}
+								
+								that.setData({is_loaded: !0})
+								
+								that.$.stopPullDownRefresh()
+								that.$.hideLoading();
+							}
+						});
+						
+				}) 
+				return promise
+			},
+			tapLove(){
+				this.videoList[this.index].IsFabulous = !this.videoList[this.index].IsFabulous
+				this.videoList = [...this.videoList]
+				
+			},
+			onProduct(item_id){
+				this.$.gotopage('/pages/product/detail?pid=' + item_id)
+			},
+			
+			tapAvater(){
+				uni.showToast({
+					icon:'none',
+					title:`点击索引为${this.index}的头像`
+				})
+			},
+			tapMsg(){
+				uni.showToast({
+					icon:'none',
+					title:`查看索引为${this.index}的评论`
+				})
+			},
+			tapShare(){
+				uni.showToast({
+					icon:'none',
+					title:`分享索引为${this.index}的视频`
+				})
+			},
+			videoPlay(index){
+				let promise = new Promise((resolve,reject)=>{
+					resolve()
+				})
+				promise.then(res=>{
+					this.videoList[index].flag = !this.videoList[index].flag
+				})
+			},
+			pauseVideo(val){
+				if(typeof this.videoList[this.oldIndex].initialTime !='undefined') this.videoList[this.oldIndex].initialTime = val
+			},
+			clickVideo(){
+				this.videoList[this.index].flag = !this.videoList[this.index].flag
+			}
+        },
+		watch:{
+			index(newVal,oldVal){
+				this.oldIndex = oldVal
+			}
+		}
+    }
+</script>
+<style scoped>
+	.swiper{
+		flex: 1;  
+		background-color: #000;
+	}
+	.swiper-item{
+		position: relative;
+	}
+    .video {
+		
+    }
+	.video-box{
+		flex: 1;
+	}
+	.cover-view-center{
+		position: absolute;
+		justify-content: center;
+		align-items: center;
+		opacity: 0.1;
+		z-index: 999;
+	}
+	
+	.cover-view-product{
+		position: absolute;
+		margin-left: 10upx;
+		width: 500upx;
+		bottom: 250upx;
+		z-index: 9999;
+		font-size: 16px;
+		color: #FFFFFF;
+		//#ifndef APP-PLUS-NVUE
+		white-space: pre-wrap;  
+		text-overflow:ellipsis;
+		overflow:hidden;
+		//#endif
+		
+		display: flex;
+        background-color: rgba(0,0,0,0.2);
+	}
+	
+	.cover-view-left{
+		position: absolute;
+		margin-left: 10upx;
+		width: 600upx;
+		bottom: 60upx;
+		z-index: 9999;
+		font-size: 16px;
+		color: #FFFFFF;
+		//#ifndef APP-PLUS-NVUE
+		white-space: pre-wrap;  
+		text-overflow:ellipsis;
+		overflow:hidden;
+		//#endif
+	}
+	.left-view{
+		margin-bottom: 0upx;
+	}
+	.left-text{
+		font-size: 16px;
+		color: #FFFFFF;
+	}
+	.avater{
+		border-radius: 50upx;
+		border-color: #fff;
+		border-style: solid;
+		border-width: 2px;
+	
+		height: 90upx!important;
+		width: 90upx!important;
+	}
+	
+	.cover-view-right{
+		position: absolute;
+		bottom: 60upx;
+		right: 20upx;
+		//#ifndef APP-PLUS-NVUE
+		display: flex;
+		flex-direction: column;
+		//#endif
+		z-index: 9999;
+	}
+	
+	.right-text-avater{
+		position: absolute;
+		font-size: 14px;
+		top: 80upx;
+		left: 30upx;
+		height: 40upx;
+		width: 40upx;
+		background-color: #DD524D;
+		color: #FFFFFF;
+		border-radius: 50%;
+		text-align: center;
+		line-height: 40upx;
+		z-index: 999;
+	}
+	.avater-icon{
+		height: 40upx;
+		width: 40upx;
+		
+		color: #fff;
+		background-color: #DD524D;
+		border-radius: 50%;
+		position: absolute;
+		left: 30upx;
+		top:-20upx;
+	}
+	
+	.right-text{
+		text-align: center;
+		font-size: 26upx;
+		color: #FFFFFF;
+		margin-bottom: 10upx;
+		height: 20px;
+	}
+	
+	.musicIcon {
+		margin-top: 40upx!important;
+		/* #ifndef APP-PLUS-NVUE */
+		animation: rotating 3s linear infinite;
+		/* #endif */
+	}
+	@keyframes rotating {
+		from {
+			transform: rotate(0);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	
+	.img{
+		height: 70upx;
+		width: 70upx;
+		opacity: 0.9;
+		margin: auto;
+	}
+	.page{
+		flex: 1; 
+	}
+	
+</style>

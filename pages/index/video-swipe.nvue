@@ -1,0 +1,333 @@
+<template>
+<view class="container">
+	<list :show-scrollbar="false" ref="b1" @scroll="scrollIng" @touchend="touchend">
+		<cell v-for="(item,i) in datas" :key="i">
+			<div ref="item" class="item"  :style="boxStyle">
+				<jVideo v-if="Math.abs(k-i)<=1" :state="item.state" :src="item.video_url" :img="item.cover_url" :boxStyle="boxStyle"></jVideo>
+				<view class="videoHover" v-if="1" @click="cplay(item.state,$event)" :style="boxStyle">
+				  	<image v-if="item.state!='play'" class="playState" src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/play_1.png"></image>
+				</view>
+				<view class="userInfo">
+				 	<image class="userAvatar  cimg" :src="item.cover_url"></image>
+					<text class="right-follow">+</text>
+					
+				 	<view class="like"  @click.stop="onLike">
+				 		<image class="img-left likeIco" :src="item.IsFabulous ? 'https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/axc.png' : 'https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/bed.png'"/>
+				 		<text class="likeNum right-text" :class="{'likeNumActive':item.IsFabulous}">{{item.story_like_count||1}}</text>
+				 	</view>
+				 	<view class="comment" @click.stop="onComment">
+				 		<image class="img-left commentIco" src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/ay2.png"></image>
+						<text class="right-text" style="color: #FFFFFF;">0</text>
+				 	</view>
+				 	<view class="share" @click="onShare">
+				 		<image class="img-left shareIco" src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/img/b6p.png"></image>
+				 		<text class="shareTex right-text">分享</text>
+				 	</view>
+					
+					<image src="https://e-mall-1316691179.cos.ap-shanghai.myqcloud.com/mall/appicon/video/changpian.png" class="musicIcon cimg"></image>
+				</view>
+				<view class="content">
+				 	<text class="userName">@{{item.user_nickname}}-{{i}}++{{k-i}}</text>
+				 	<text class="words">{{item.story_title}}-=-=---k+{{k}}</text>
+				</view>
+			</div>
+		</cell>
+	</list>
+</view>
+</template>
+<script>
+const dom = weex.requireModule('dom');
+import jVideo from '@/components/video/j-video.nvue';
+export default {
+		components: {jVideo},
+        data: {
+			datas:[],
+			scrollTop:0,
+			oldScrollTop:0,
+			wHeight:0,
+			boxStyle:{
+				'height':0,
+				'width':'750upx',
+			},
+			k:0,
+			playIngIds:[],//正在播放的视频id列队，列队用于处理滑动过快导致的跳频问题
+			ready:false,
+			isDragging:false//用户是否正在拖动列表
+        },
+		watch:{
+			k(k,old_k){
+				this.datas[k].state = 'play'
+				this.datas[old_k].state = 'stop'
+			},
+			isDragging(isDragging){
+				if(!isDragging){
+					var k = parseInt(this.scrollTop/this.wHeight);
+					console.log( Math.abs(this.oldScrollTop-this.scrollTop) );
+					if(this.oldScrollTop < this.scrollTop){
+						k++
+					}
+					
+					
+					this.k = k;
+					
+					
+					console.info(`video_${this.k}`);
+					
+					let el = this.$refs.item[k].ref;
+					dom.scrollToElement(el,{offset:0});
+					if(k>this.datas.length-2){
+						this.getData();
+					}
+					this.oldScrollTop = this.scrollTop;
+				}
+			}
+			
+		},
+		onShow(){
+			console.log('回到前台');
+			if (this.datas[this.k])
+			{
+				this.datas[this.k].state = 'play';
+			}
+		},
+		onHide(){
+			console.log('到后台');
+			//this.$refs.video[this.k].pause();
+			this.datas[this.k].state = 'pause';
+		},
+		onLoad(){
+			this.wHeight = uni.getSystemInfoSync().windowHeight;
+			this.boxStyle.height = this.wHeight;
+			console.log(this.wHeight);
+			this.getData(e=>{
+				//this.$refs.video[0].play();
+				this.datas[0].state = 'play';
+				this.ready = true;
+			});
+		},
+        methods: {
+			pauseAll(){
+			},
+			addPlayIngIds(id){
+			},
+			rmPlayIngIds(id){
+			},
+			//点击播放&&暂停
+			cplay(state,event){
+				console.log('state--',state);
+				if(state=='play'){
+					this.datas[this.k].state = 'pause';
+				}else{
+					this.datas[this.k].state = 'play';
+				}
+			},
+			onLike(e){
+				uni.showToast({
+					user_nickname:'',
+					icon:'none'
+				})
+			},
+			onShare(e){
+				uni.showToast({
+					user_nickname:'',
+					icon:'none'
+				})
+			},
+			onLike(e){
+				console.log('点赞')
+			},
+			getData(callback=e=>{}){
+				//story_type
+				
+				uni.request({
+					url: 'https://api.52170.xin/video',
+					dataType: 'json',
+					success: res => {
+						for (let item of res.data.data.list) {
+							this.datas.push({
+									video_id: item.video_id,
+									user_nickname: item.user_nickname,
+									story_title: item.story_title,
+									cover_url: item.cover_url,
+									video_url: item.video_url,
+									IsFabulous: item.dianzan,
+									pinglun: item.pinglun,
+									zhuanfa: item.zhuanfa,
+									is_dianzan: item.is_dianzan,
+									flag: false,
+									state : 'pause'
+								});
+						}
+						
+						setTimeout(e=>{
+							callback()
+						},1000);
+					}
+				});
+			},
+			scrollIng(e){
+				this.isDragging = e.isDragging;
+				if(!e.isDragging){
+					this.scrollTop = Math.abs(e.contentOffset.y);
+				}
+			},
+			touchend(){
+				setTimeout(e=>{
+					
+					
+				},30)
+			}
+        }
+    }
+</script>
+<style>
+    .container {flex: 1;background-color: #eeeeee;}
+    .item {
+		width : 750upx;
+		background-color: #DD524D;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+	}
+	.videoHover{
+		position: absolute;
+		top: 0;
+		left: 0;
+		flex: 1;
+		background-color: rgba(0,0,0,0.1);
+		justify-content: center;
+		align-items: center;
+		
+		/* border-style: dashed;
+		border-color: #DD524D;
+		border-width: 1px; */
+	}
+	.playState{
+		width:  80upx;
+		height: 80upx;
+	}
+	.userInfo{
+
+		position: absolute;
+		bottom: 40px;
+		right: 30upx;
+		z-index: 9999;
+		text-align: center;
+		/* #ifndef APP-PLUS-NVUE */
+		bottom: 0upx;
+		/* #endif */
+	}
+	.userAvatar{
+		border-radius: 500%;
+		margin-bottom: 15px;
+		border-style: solid;
+		border-width: 2px;
+		border-color: #ffffff;
+	}
+	
+	.userAvatar{
+		width : 90upx;
+		height: 90upx;
+	}
+	
+	.likeIco{
+		width: 80upx;
+		height: 66upx;
+		padding-left: 4px;
+	}
+	
+	.shareIco{
+		width: 80upx;
+		height: 80upx;
+		padding-left: 4px;
+	}
+	
+	.commentIco{
+		width: 80upx;
+		height: 76upx;
+		padding-left: 4px;
+	}
+	
+	
+	.likeNum,.commentNum,.shareTex{
+		color: #ffffff;
+		font-size: 30upx;
+		text-align: center;
+		margin: 5px;
+	}
+	.likeNumActive{
+		color: red;
+	}
+	.content{
+	  width: 720upx;
+	  z-index: 99;
+	  position: absolute;
+	  bottom: 10px;
+	  justify-content: center;
+	  padding: 15upx;
+	  flex-direction: column;
+	  justify-content: flex-start;
+	  color: #ffffff;
+	}
+	.userName {
+	  font-size: 30upx;
+	  color: #ffffff;
+	}
+	.words {
+	  margin-top: 10upx;
+	  font-size: 30upx;
+	  color: #ffffff;
+	}
+	
+	.right-follow {
+		position: absolute;
+		z-index: 100;
+		top: 75upx;
+		left: 28upx;
+		color: #ffffff;
+		font-size: 16px;
+		width: 34upx;
+		height: 34upx;
+		background-color: #f12f5b;
+		text-align: center;
+		line-height: 34upx;
+		border-radius: 17upx;
+	}
+	
+	.right-text {
+		color: #ffffff;
+		font-size: 11px;
+		text-align: center;
+		margin-bottom: 40upx;
+	}
+	
+
+.avater {
+	border-radius: 50%;
+	border-width: 2px;
+	border-style: solid;
+	border-color: #ffffff;
+}
+
+.cimg {
+	height: 90upx;
+	width: 90upx;
+	margin-bottom: 50upx;
+}
+	
+	
+	.musicIcon {
+		margin-top: 40upx;
+		/* #ifndef APP-PLUS-NVUE */
+		animation: rotating 3s linear infinite;
+		/* #endif */
+	}
+	@keyframes rotating {
+		from {
+			transform: rotate(0);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+</style>
