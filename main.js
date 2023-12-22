@@ -72,8 +72,6 @@ Vue.prototype.setData = function (params) {
 					$cookies.set('fxid', params[x].uid);
 				}
             }
-
-
 			//单品存储, 下单时候本地存储判断是否有分享者，加入标记后存入数据库
             if (params[x].uid && params[x].pid)
             {
@@ -131,13 +129,7 @@ Vue.prototype.setData = function (params) {
                 uni.setStorageSync('source_ucc_code', params[x].source_ucc_code);
             }
         }
-
-        //console.info(x, JSON.stringify(params[x]));
-        //console.info('----', x);
-
-
         this.$set(this, x, params[x]);
-        //this[x] = params[x];
     }
 }
 
